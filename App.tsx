@@ -1,6 +1,6 @@
-import MonthlyCalendar from "@/components/MonthlyCalendar";
 import React from "react";
 import { View, StyleSheet } from "react-native";
+import MonthlyCalendar from "./components/MonthlyCalendar";
 
 export default function App() {
   return (
