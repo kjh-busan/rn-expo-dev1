@@ -1,13 +1,11 @@
-import MonthlyCalendar from "@/components/MonthlyCalendar";
+import TimePicker from "@/components/TimePicker";
 import React from "react";
 import { View, StyleSheet } from "react-native";
 
 export default function App() {
   return (
     <View style={styles.container}>
-      <MonthlyCalendar
-        onDateSelect={(date) => console.log("선택한 날짜:", date)}
-      />
+      <TimePicker />
     </View>
   );
 }
