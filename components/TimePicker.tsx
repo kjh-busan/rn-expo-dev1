@@ -1,111 +1,155 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
+  Modal,
+  ScrollView,
   StyleSheet,
-  Dimensions,
-  FlatList,
+  TouchableOpacity,
+  Animated,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import dayjs from "dayjs";
 
-const { width } = Dimensions.get("window");
+const ITEM_HEIGHT = 40;
+const VISIBLE_ITEMS = 5;
 
-const TIME_VALUES = Array.from({ length: 24 }, (_, i) => `${i}:00`); // 0:00 ~ 23:00
+interface TimePickerProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: (date: dayjs.Dayjs) => void;
+}
 
-const TimePicker = () => {
-  const [selectedTime, setSelectedTime] = useState(TIME_VALUES[0]);
-  const translateY = useSharedValue(0);
+const TimePicker: React.FC<TimePickerProps> = ({
+  visible,
+  onClose,
+  onConfirm,
+}) => {
+  const [selectedTime, setSelectedTime] = useState(dayjs()); // ✅ dayjs로 시간 관리
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-    translateY.value = withSpring(-50, { damping: 10, stiffness: 100 });
-    setTimeout(() => {
-      translateY.value = withSpring(0, { damping: 10, stiffness: 100 });
-    }, 300);
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      fadeAnim.setValue(0);
+    }
+  }, [visible]);
+
+  const handleOutsideTouch = () => {
+    onConfirm(selectedTime); // ✅ dayjs 객체 반환
+    onClose();
   };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  const renderPicker = (
+    values: number[],
+    selectedValue: number,
+    setValue: (value: number) => void,
+    type: "hour" | "minute"
+  ) => (
+    <ScrollView
+      style={styles.picker}
+      showsVerticalScrollIndicator={false}
+      snapToInterval={ITEM_HEIGHT}
+      decelerationRate="fast"
+      onMomentumScrollEnd={(event) => {
+        const index = Math.round(
+          event.nativeEvent.contentOffset.y / ITEM_HEIGHT
+        );
+        const newValue = values[index % values.length];
+
+        // ✅ dayjs 업데이트 방식 변경
+        setSelectedTime((prevTime) =>
+          type === "hour" ? prevTime.hour(newValue) : prevTime.minute(newValue)
+        );
+      }}
+    >
+      <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
+      {values.map((item) => (
+        <View key={item} style={styles.pickerItemContainer}>
+          <Text
+            style={[
+              styles.pickerItem,
+              selectedValue === item && styles.selectedItem,
+            ]}
+          >
+            {item < 10 ? `0${item}` : item}
+          </Text>
+        </View>
+      ))}
+      <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
+    </ScrollView>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>선택한 시간: {selectedTime}</Text>
-      <Animated.View style={[styles.buttonContainer, animatedStyle]}>
-        <FlatList
-          data={TIME_VALUES}
-          keyExtractor={(item) => item}
-          horizontal
-          contentContainerStyle={styles.flatListContent}
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.timeButton,
-                selectedTime === item && styles.selectedButton,
-              ]}
-              onPress={() => handleTimeSelect(item)}
-            >
-              <Text
-                style={[
-                  styles.timeText,
-                  selectedTime === item && styles.selectedText,
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </Animated.View>
-    </View>
+    <Modal transparent visible={visible} animationType="fade">
+      <TouchableOpacity
+        style={styles.backgroundOverlay}
+        activeOpacity={1}
+        onPress={handleOutsideTouch}
+      >
+        <Animated.View style={[styles.modalContent, { opacity: fadeAnim }]}>
+          <View style={styles.pickerContainer}>
+            {renderPicker(
+              Array.from({ length: 24 }, (_, i) => i),
+              selectedTime.hour(),
+              (hour) => setSelectedTime(selectedTime.hour(hour)),
+              "hour"
+            )}
+            {renderPicker(
+              Array.from({ length: 60 }, (_, i) => i),
+              selectedTime.minute(),
+              (minute) => setSelectedTime(selectedTime.minute(minute)),
+              "minute"
+            )}
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    </Modal>
   );
 };
 
+export default TimePicker;
+
 const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    marginTop: 50,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    backgroundColor: "#F8F9FA",
-    borderRadius: 10,
-    paddingVertical: 10,
-    width: width * 0.9,
-    alignItems: "center",
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)", // 배경을 어둡게 처리
     justifyContent: "center",
-  },
-  flatListContent: {
     alignItems: "center",
   },
-  timeButton: {
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 10,
+    width: "80%",
+    alignItems: "center",
+  },
+  pickerContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginHorizontal: 5,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 8,
+    height: ITEM_HEIGHT * VISIBLE_ITEMS,
   },
-  selectedButton: {
-    backgroundColor: "#1976D2",
+  picker: {
+    width: 60,
+    height: ITEM_HEIGHT * VISIBLE_ITEMS,
   },
-  timeText: {
-    fontSize: 16,
+  pickerItemContainer: {
+    height: ITEM_HEIGHT,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickerItem: {
+    fontSize: 18,
+    color: "#888",
+  },
+  selectedItem: {
+    fontSize: 22,
     fontWeight: "bold",
-  },
-  selectedText: {
-    color: "#FFFFFF",
+    color: "#000",
   },
 });
-
-export default TimePicker;

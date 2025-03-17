@@ -1,282 +1,78 @@
-import React, { useRef, useEffect, useMemo } from "react";
-import {
-  Text,
-  View,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Animated,
-} from "react-native";
-import { debounce } from "lodash";
-import dayjs from "dayjs";
-import {
-  getIndexFromOffset,
-  getCenterPositionFromIndex,
-  fillEmpty,
-} from "@/components/Util";
-import {
-  MERIDIEM_ITEMS,
-  HOUR_ITEMS,
-  MINUTE_ITEMS,
-  BUTTON_HEIGHT,
-  GAP,
-} from "@/components/Values";
-import customParseFormat from "dayjs/plugin/customParseFormat"; // Assuming customParseFormat is imported from a separate file
-dayjs.extend(customParseFormat);
+import { Image, StyleSheet, Platform } from "react-native";
 
-interface TimePickerProps {
-  value: dayjs.Dayjs;
-  onChange: (date: dayjs.Dayjs) => void;
-  width: number;
-  buttonHeight: number;
-  visibleCount: number;
-}
+import { HelloWave } from "@/components/HelloWave";
+import ParallaxScrollView from "@/components/ParallaxScrollView";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
 
-const isPM = (date: dayjs.Dayjs | undefined | null): boolean => {
-  if (!date || !dayjs.isDayjs(date)) {
-    console.warn("isPM() received invalid date:", date);
-    return false; // 기본값 반환
-  }
-  return date.hour() >= 12;
-};
-
-const TimePicker: React.FC<TimePickerProps> = ({
-  value = dayjs(), // 기본값 추가
-  onChange = () => {}, // 기본값 추가 (빈 함수)
-  width,
-  buttonHeight,
-  visibleCount,
-}) => {
-  if (visibleCount % 2 === 0) throw new Error("visibleCount must be odd");
-
-  const ITEMS = [
-    { key: "meridiem", items: MERIDIEM_ITEMS },
-    { key: "hour", items: HOUR_ITEMS },
-    { key: "minute", items: MINUTE_ITEMS },
-  ] as const;
-
-  const refs = useRef<(ScrollView | null)[]>(
-    Array.from({ length: 3 }).map(() => null)
-  );
-  const animatedValues = useRef<Animated.Value[]>(
-    Array.from({ length: 3 }).map(() => new Animated.Value(0))
-  );
-
-  const getScrollProps = (
-    index: number,
-    key: "meridiem" | "hour" | "minute",
-    items: string[]
-  ) => {
-    const onScrollStop = debounce((offsetY: number) => {
-      let date = value;
-      const itemIdx = getIndexFromOffset(offsetY);
-
-      if (key === "meridiem") {
-        const currValueIsPM = isPM(date);
-        const nextValueIsPM = MERIDIEM_ITEMS[itemIdx] === "오후";
-        if (currValueIsPM !== nextValueIsPM) {
-          date = date.add(nextValueIsPM ? 12 : -12, "hour");
-        }
-      }
-      if (key === "hour") {
-        const hour = Number(HOUR_ITEMS[itemIdx]);
-        if (isPM(date)) {
-          date = date.hour(hour === 12 ? 12 : hour + 12);
-        } else {
-          date = date.hour(hour === 12 ? 0 : hour);
-        }
-      }
-      if (key === "minute") {
-        date = date.minute(Number(MINUTE_ITEMS[itemIdx]));
-      }
-
-      onChange(date);
-    }, 200);
-
-    return {
-      key,
-      index,
-      items,
-      showsVerticalScrollIndicator: false,
-      contentContainerStyle: styles.scrollView,
-      ref: (el: ScrollView | null) => (refs.current[index] = el),
-      onScrollBeginDrag: () => onScrollStop.cancel(),
-      onScrollEndDrag: (e: any) => {
-        onScrollStop.cancel();
-        onScrollStop(e.nativeEvent.contentOffset.y);
-      },
-      onMomentumScrollBegin: () => onScrollStop.cancel(),
-      onMomentumScrollEnd: (e: any) => {
-        onScrollStop.cancel();
-        onScrollStop(e.nativeEvent.contentOffset.y);
-      },
-      getOnPress: (item: string) => () => {
-        const targetIdx = items.indexOf(item);
-        if (targetIdx === -1) return;
-        const CENTER_POSITION = getCenterPositionFromIndex(targetIdx);
-        onScrollStop(CENTER_POSITION);
-        onScrollStop.flush();
-      },
-      animatedValue: animatedValues.current[index],
-      scrollEventThrottle: 16,
-    };
-  };
-
-  const scrollProps = useMemo(() => {
-    return ITEMS.map(({ key, items }, index) =>
-      getScrollProps(index, key, items)
-    );
-  }, [value]);
-
-  useEffect(() => {
-    const meridiem = isPM(value) ? "오후" : "오전";
-    const hour = String(value.hour() % 12 || 12).padStart(2, "0");
-    const minute = String(value.minute()).padStart(2, "0");
-
-    const matchIndex = [
-      MERIDIEM_ITEMS.indexOf(meridiem),
-      HOUR_ITEMS.indexOf(hour),
-      MINUTE_ITEMS.indexOf(minute),
-    ];
-
-    scrollProps.forEach((props, index) => {
-      refs.current[index]?.scrollTo({
-        y: getCenterPositionFromIndex(matchIndex[index]),
-      });
-    });
-  }, [value]);
-
+export default function HomeScreen() {
   return (
-    <View
-      style={[styles.container, { width, height: visibleCount * buttonHeight }]}
+    <ParallaxScrollView
+      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
+      headerImage={
+        <Image
+          source={require("@/assets/images/partial-react-logo.png")}
+          style={styles.reactLogo}
+        />
+      }
     >
-      {scrollProps.map((props) => {
-        const renderItems = fillEmpty(visibleCount, props.items);
-
-        return (
-          <ScrollView
-            {...props}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: props.animatedValue } } }],
-              {
-                useNativeDriver: false,
-              }
-            )}
-            key={props.key}
-          >
-            {renderItems.map((item, index) => {
-              const position = getCenterPositionFromIndex(
-                props.items.indexOf(item)
-              );
-              const opacity = props.animatedValue.interpolate({
-                inputRange: [
-                  position - BUTTON_HEIGHT,
-                  position,
-                  position + BUTTON_HEIGHT,
-                ],
-                outputRange: [0.3, 1, 0.3],
-                extrapolate: "clamp",
-              });
-
-              return (
-                <Button
-                  key={item}
-                  style={{ opacity }}
-                  label={item}
-                  onPress={props.getOnPress(item)}
-                />
-              );
+      <ThemedView style={styles.titleContainer}>
+        <ThemedText type="title">Welcome!</ThemedText>
+        <HelloWave />
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
+        <ThemedText>
+          Edit{" "}
+          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText>{" "}
+          to see changes. Press{" "}
+          <ThemedText type="defaultSemiBold">
+            {Platform.select({
+              ios: "cmd + d",
+              android: "cmd + m",
+              web: "F12",
             })}
-          </ScrollView>
-        );
-      })}
-      <OverlayView />
-    </View>
+          </ThemedText>{" "}
+          to open developer tools.
+        </ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
+        <ThemedText>
+          Tap the Explore tab to learn more about what's included in this
+          starter app.
+        </ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
+        <ThemedText>
+          When you're ready, run{" "}
+          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText>{" "}
+          to get a fresh <ThemedText type="defaultSemiBold">app</ThemedText>{" "}
+          directory. This will move the current{" "}
+          <ThemedText type="defaultSemiBold">app</ThemedText> to{" "}
+          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
+        </ThemedText>
+      </ThemedView>
+    </ParallaxScrollView>
   );
-};
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-interface ButtonProps {
-  style?: object;
-  label: string;
-  onPress: () => void;
 }
-
-const Button: React.FC<ButtonProps> = ({ style, label, onPress }) => {
-  return (
-    <AnimatedPressable style={style} onPress={onPress}>
-      <View style={styles.button}>
-        <Text style={styles.buttonLabel}>{label}</Text>
-      </View>
-    </AnimatedPressable>
-  );
-};
-
-const OverlayView: React.FC = () => {
-  return (
-    <View
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFill, styles.overlay]}
-    >
-      <View style={styles.overlayVisibleView}>
-        <View style={styles.overlayVisibleViewInner} />
-        <GapView />
-        <View style={styles.overlayVisibleViewInner} />
-        <GapView>
-          <Text style={{ position: "absolute", textAlign: "center" }}>
-            {":"}
-          </Text>
-        </GapView>
-        <View style={styles.overlayVisibleViewInner} />
-      </View>
-    </View>
-  );
-};
-
-const GapView: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
-  return <View style={styles.gap}>{children}</View>;
-};
 
 const styles = StyleSheet.create({
-  gap: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: GAP,
-  },
-  container: {
-    borderWidth: 1,
-    alignSelf: "center",
+  titleContainer: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  scrollView: {
+  stepContainer: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  reactLogo: {
+    height: 178,
+    width: 290,
+    bottom: 0,
     left: 0,
-    right: 0,
     position: "absolute",
   },
-  button: {
-    height: BUTTON_HEIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonLabel: {
-    fontWeight: "bold",
-  },
-  overlay: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  overlayVisibleView: {
-    width: "100%",
-    height: BUTTON_HEIGHT,
-    flexDirection: "row",
-  },
-  overlayVisibleViewInner: {
-    flex: 1,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#c8c8c8",
-  },
 });
-
-export default TimePicker;
