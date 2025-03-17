@@ -14,11 +14,9 @@ const ITEM_HEIGHT = 40;
 const VISIBLE_ITEMS = 5;
 
 interface TimePickerProps {
-  mode: "yearMonth" | "hourMinute";
   visible: boolean;
   onClose: () => void;
-  onConfirm: (date: dayjs.Dayjs) => void;
-  initialDate: dayjs.Dayjs;
+  onConfirm: (selectedTime: dayjs.Dayjs) => void;
 }
 
 const TimePicker: React.FC<TimePickerProps> = ({
@@ -26,7 +24,9 @@ const TimePicker: React.FC<TimePickerProps> = ({
   onClose,
   onConfirm,
 }) => {
-  const [selectedTime, setSelectedTime] = useState(dayjs()); // ✅ dayjs로 시간 관리
+  const now = dayjs();
+  const [selectedHour, setSelectedHour] = useState(now.hour());
+  const [selectedMinute, setSelectedMinute] = useState(now.minute());
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -42,15 +42,15 @@ const TimePicker: React.FC<TimePickerProps> = ({
   }, [visible]);
 
   const handleOutsideTouch = () => {
-    onConfirm(selectedTime); // ✅ dayjs 객체 반환
+    const selectedTime = now.hour(selectedHour).minute(selectedMinute);
+    onConfirm(selectedTime);
     onClose();
   };
 
   const renderPicker = (
     values: number[],
     selectedValue: number,
-    setValue: (value: number) => void,
-    type: "hour" | "minute"
+    setValue: (value: number) => void
   ) => (
     <ScrollView
       style={styles.picker}
@@ -61,12 +61,7 @@ const TimePicker: React.FC<TimePickerProps> = ({
         const index = Math.round(
           event.nativeEvent.contentOffset.y / ITEM_HEIGHT
         );
-        const newValue = values[index % values.length];
-
-        // ✅ dayjs 업데이트 방식 변경
-        setSelectedTime((prevTime) =>
-          type === "hour" ? prevTime.hour(newValue) : prevTime.minute(newValue)
-        );
+        setValue(values[index % values.length]);
       }}
     >
       <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
@@ -97,15 +92,13 @@ const TimePicker: React.FC<TimePickerProps> = ({
           <View style={styles.pickerContainer}>
             {renderPicker(
               Array.from({ length: 24 }, (_, i) => i),
-              selectedTime.hour(),
-              (hour) => setSelectedTime(selectedTime.hour(hour)),
-              "hour"
+              selectedHour,
+              setSelectedHour
             )}
             {renderPicker(
               Array.from({ length: 60 }, (_, i) => i),
-              selectedTime.minute(),
-              (minute) => setSelectedTime(selectedTime.minute(minute)),
-              "minute"
+              selectedMinute,
+              setSelectedMinute
             )}
           </View>
         </Animated.View>
@@ -119,22 +112,21 @@ export default TimePicker;
 const styles = StyleSheet.create({
   backgroundOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)", // 배경을 어둡게 처리
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContent: {
     backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 10,
+    borderRadius: 10,
+    padding: 20,
     width: "80%",
     alignItems: "center",
   },
   pickerContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    paddingVertical: 10,
-    height: ITEM_HEIGHT * VISIBLE_ITEMS,
+    alignItems: "center",
   },
   picker: {
     width: 60,
@@ -147,10 +139,10 @@ const styles = StyleSheet.create({
   },
   pickerItem: {
     fontSize: 18,
-    color: "#888",
+    color: "#666",
   },
   selectedItem: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#000",
   },

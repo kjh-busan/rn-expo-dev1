@@ -81,8 +81,8 @@ const CalendarModal: React.FC<{ visible: boolean; onClose: () => void }> = ({
       {/* 14. 타임픽커를 `absolute` 배치하여 조작 가능하도록 수정 */}
       {isTimePickerVisible && (
         <TimePicker
-          mode={pickerMode}
-          initialDate={selectedDate}
+          // mode={pickerMode}
+          // initialDate={selectedDate}
           onClose={() => setTimePickerVisible(false)}
           onConfirm={handleTimeConfirm}
           visible={false}
