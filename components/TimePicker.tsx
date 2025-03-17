@@ -14,9 +14,11 @@ const ITEM_HEIGHT = 40;
 const VISIBLE_ITEMS = 5;
 
 interface TimePickerProps {
+  mode: "yearMonth" | "hourMinute";
   visible: boolean;
   onClose: () => void;
   onConfirm: (date: dayjs.Dayjs) => void;
+  initialDate: dayjs.Dayjs;
 }
 
 const TimePicker: React.FC<TimePickerProps> = ({

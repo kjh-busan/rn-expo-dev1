@@ -1,266 +1,222 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
-  Animated,
-  TouchableOpacity,
   FlatList,
-  Dimensions,
+  TouchableOpacity,
   StyleSheet,
-  ViewStyle,
-  TextStyle,
+  Dimensions,
 } from "react-native";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 
-const { width, height } = Dimensions.get("window");
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const MONTH_VIEW_HEIGHT = SCREEN_HEIGHT * 0.4; // 한 달 달력 높이를 화면의 40%로 설정
+const INITIAL_MONTHS = 12; // 처음 렌더링할 개월 수 (6개월 이전 + 현재 + 6개월 이후)
+const CENTER_INDEX = INITIAL_MONTHS / 2; // FlatList 초기 위치 (현재 달 기준)
 
-interface CalendarProps {
-  calendarHeight?: number;
-  onDateSelect?: (date: string) => void;
-  styles?: {
-    calendarContainer?: ViewStyle;
-    monthTitle?: TextStyle;
-    weekDay?: TextStyle;
-    dateCell?: ViewStyle;
-    today?: ViewStyle;
-    selectedDate?: ViewStyle;
-    dot?: TextStyle;
-  };
-}
-
-const generateMonthData = (date: dayjs.Dayjs) => {
-  const startOfMonth = date.startOf("month");
-  const endOfMonth = date.endOf("month");
-  const startDay = startOfMonth.day();
-  const daysInMonth = endOfMonth.date();
-
-  let days: { date: dayjs.Dayjs; isCurrentMonth: boolean }[] = [];
-
-  // 이전 달 날짜 채우기
-  for (let i = startDay - 1; i >= 0; i--) {
-    days.push({
-      date: startOfMonth.subtract(i + 1, "day"),
-      isCurrentMonth: false,
-    });
-  }
-
-  // 이번 달 날짜 채우기
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push({
-      date: startOfMonth.date(i),
-      isCurrentMonth: true,
-    });
-  }
-
-  // 다음 달 날짜 채우기
-  while (days.length % 7 !== 0) {
-    days.push({
-      date: endOfMonth.add(days.length % 7, "day"),
-      isCurrentMonth: false,
-    });
-  }
-
-  // 주(week) 단위로 나누기
-  const weeks = [];
-  for (let i = 0; i < days.length; i += 7) {
-    weeks.push(days.slice(i, i + 7));
-  }
-
-  return weeks;
+type CalendarMonth = {
+  date: Dayjs;
+  days: (Dayjs | null)[];
 };
 
-const MonthlyCalendar: React.FC<CalendarProps> = ({
-  calendarHeight,
-  onDateSelect,
-  styles: customStyles = {},
-}) => {
-  const effectiveCalendarHeight = calendarHeight ?? height * 0.6; // 기본값 설정
-  const [currentMonth, setCurrentMonth] = useState(dayjs());
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
-  const listRef = useRef<FlatList>(null);
+// 📌 한 달 단위 달력 데이터 생성 함수
+const generateCalendarData = (date: Dayjs): (Dayjs | null)[] => {
+  const startOfMonth = date.startOf("month");
+  const daysInMonth = startOfMonth.daysInMonth();
+  const firstDayIndex = startOfMonth.day();
 
-  // 무한 스크롤을 위한 월 데이터 생성
-  const months = [
-    currentMonth.subtract(1, "month"),
-    currentMonth,
-    currentMonth.add(1, "month"),
-  ];
-
-  // 스크롤 시 현재 월 업데이트
-  const handleMomentumScrollEnd = useCallback(
-    (event: any) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
-      const index = Math.round(offsetY / effectiveCalendarHeight);
-
-      setCurrentMonth((current) => current.add(index - 1, "month"));
-
-      listRef.current?.scrollToOffset({
-        offset: effectiveCalendarHeight,
-        animated: false,
-      });
-    },
-    [effectiveCalendarHeight]
+  const days: Dayjs[] = Array.from({ length: daysInMonth }, (_, i) =>
+    startOfMonth.add(i, "day")
   );
 
-  const handleDateSelect = (date: dayjs.Dayjs) => {
-    setSelectedDate(date);
-    if (onDateSelect) {
-      onDateSelect(date.format("YYYY-MM-DD"));
-    }
+  const leadingBlanks = Array(firstDayIndex).fill(null);
+  const totalCells = Math.ceil((firstDayIndex + daysInMonth) / 7) * 7;
+  const trailingBlanksCount = totalCells - (firstDayIndex + daysInMonth);
+  const trailingBlanks = Array(trailingBlanksCount).fill(null);
+
+  return [...leadingBlanks, ...days, ...trailingBlanks];
+};
+
+const MonthlyCalendar = () => {
+  const today = dayjs();
+  const listRef = useRef<FlatList>(null);
+  const [calendarData, setCalendarData] = useState<CalendarMonth[]>(() =>
+    Array.from({ length: INITIAL_MONTHS }, (_, i) => {
+      const month = today.subtract(CENTER_INDEX - i, "month");
+      return { date: month, days: generateCalendarData(month) };
+    })
+  );
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+
+  // 📌 이전 달 추가 (최상단으로 스크롤 시)
+  const addPreviousMonths = useCallback(() => {
+    const firstMonth = calendarData[0].date.subtract(3, "month"); // 3개월 추가
+    const newMonths = Array.from({ length: 3 }, (_, i) => {
+      const month = firstMonth.add(i, "month");
+      return { date: month, days: generateCalendarData(month) };
+    });
+
+    setCalendarData((prev) => [...newMonths, ...prev]);
+
+    setTimeout(() => {
+      if (listRef.current) {
+        listRef.current.scrollToIndex({ index: 3, animated: false });
+      }
+    }, 50);
+  }, [calendarData]);
+
+  // 📌 다음 달 추가 (최하단으로 스크롤 시)
+  const addNextMonths = useCallback(() => {
+    const lastMonth = calendarData[calendarData.length - 1].date.add(
+      1,
+      "month"
+    );
+    const newMonths = Array.from({ length: 3 }, (_, i) => {
+      const month = lastMonth.add(i, "month");
+      return { date: month, days: generateCalendarData(month) };
+    });
+
+    setCalendarData((prev) => [...prev, ...newMonths]);
+  }, [calendarData]);
+
+  // 📌 한 달 단위로 렌더링
+  const renderMonth = ({ item }: { item: CalendarMonth }) => (
+    <View style={[styles.monthContainer, { height: MONTH_VIEW_HEIGHT }]}>
+      <Text style={styles.headerTitle}>{item.date.format("YYYY년 M월")}</Text>
+      <View style={styles.weekDays}>
+        {["일", "월", "화", "수", "목", "금", "토"].map((day, idx) => (
+          <Text
+            key={idx}
+            style={[
+              styles.weekDayText,
+              idx === 0 ? styles.sunday : idx === 6 ? styles.saturday : null,
+            ]}
+          >
+            {day}
+          </Text>
+        ))}
+      </View>
+      <FlatList
+        data={item.days}
+        numColumns={7}
+        keyExtractor={(_, index) => index.toString()}
+        renderItem={renderDayCell}
+        scrollEnabled={false}
+      />
+    </View>
+  );
+
+  // 📌 날짜 셀 렌더링
+  const renderDayCell = ({ item }: { item: Dayjs | null }) => {
+    if (item === null) return <View style={styles.dayCell} />;
+
+    const dayNumber = item.date();
+    const isToday = item.isSame(today, "day");
+    const isSelected = selectedDate && item.isSame(selectedDate, "day");
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.dayCell,
+          isToday && styles.todayCell,
+          isSelected && styles.selectedCell,
+        ]}
+        onPress={() => setSelectedDate(item)}
+      >
+        <Text
+          style={[
+            styles.dayText,
+            isToday && styles.todayText,
+            isSelected && styles.selectedText,
+          ]}
+        >
+          {dayNumber}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
-  // 컴포넌트가 마운트될 때 초기 스크롤 위치 설정
-  useEffect(() => {
-    listRef.current?.scrollToOffset({
-      offset: effectiveCalendarHeight,
-      animated: false,
-    });
-  }, [effectiveCalendarHeight]);
-
   return (
-    <View
-      style={StyleSheet.flatten([
-        defaultStyles.container,
-        customStyles.calendarContainer,
-        { height: effectiveCalendarHeight },
-      ])}
-    >
-      <Animated.FlatList
+    <View style={styles.container}>
+      <FlatList
         ref={listRef}
-        data={months}
-        keyExtractor={(item) => item.format("YYYY-MM")}
+        data={calendarData}
+        keyExtractor={(item) => item.date.format("YYYY-MM")}
+        renderItem={renderMonth}
+        onEndReached={addNextMonths} // 🔹 아래로 스크롤하면 다음 달 추가
+        onEndReachedThreshold={0.5}
+        onScroll={({ nativeEvent }) => {
+          if (nativeEvent.contentOffset.y <= 10) {
+            addPreviousMonths(); // 🔹 위로 스크롤하면 이전 달 추가
+          }
+        }}
         pagingEnabled
-        horizontal={false}
         showsVerticalScrollIndicator={false}
-        getItemLayout={(data, index) => ({
-          length: effectiveCalendarHeight,
-          offset: effectiveCalendarHeight * index,
+        initialScrollIndex={CENTER_INDEX}
+        getItemLayout={(_, index) => ({
+          length: MONTH_VIEW_HEIGHT,
+          offset: MONTH_VIEW_HEIGHT * index,
           index,
         })}
-        onMomentumScrollEnd={handleMomentumScrollEnd}
-        renderItem={({ item }) => {
-          const weeks = generateMonthData(item);
-          return (
-            <View>
-              <Text
-                style={StyleSheet.flatten([
-                  defaultStyles.monthTitle,
-                  customStyles.monthTitle,
-                ])}
-              >
-                {item.format("YYYY년 MM월")}
-              </Text>
-              <View style={defaultStyles.weekRow}>
-                {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
-                  <Text
-                    key={day}
-                    style={StyleSheet.flatten([
-                      defaultStyles.weekDay,
-                      customStyles.weekDay,
-                    ])}
-                  >
-                    {day}
-                  </Text>
-                ))}
-              </View>
-              {weeks.map((week, weekIndex) => (
-                <View key={weekIndex} style={defaultStyles.gridRow}>
-                  {week.map((day) => {
-                    const isToday = day.date.isSame(dayjs(), "day");
-                    const isSelected =
-                      selectedDate && day.date.isSame(selectedDate, "day");
-                    const hasSchedule = Math.random() < 0.2;
-
-                    return (
-                      <TouchableOpacity
-                        key={day.date.format("YYYY-MM-DD")}
-                        onPress={() => handleDateSelect(day.date)}
-                        style={StyleSheet.flatten([
-                          defaultStyles.dateCell,
-                          customStyles.dateCell,
-                          !day.isCurrentMonth && defaultStyles.dimmedDate,
-                          isToday && defaultStyles.today,
-                          isSelected && defaultStyles.selectedDate,
-                        ])}
-                      >
-                        <Text style={defaultStyles.dateText}>
-                          {day.date.date()}
-                        </Text>
-                        {hasSchedule && (
-                          <Text
-                            style={StyleSheet.flatten([
-                              defaultStyles.dot,
-                              customStyles.dot,
-                            ])}
-                          >
-                            •
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          );
-        }}
       />
     </View>
   );
 };
 
-const defaultStyles = StyleSheet.create({
+export default MonthlyCalendar;
+
+const styles = StyleSheet.create({
   container: {
-    width: width * 0.9,
-    backgroundColor: "#fff",
-    alignItems: "center",
+    flex: 1,
+    padding: 16,
   },
-  monthTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 5,
+  monthContainer: {
+    marginBottom: 20,
   },
-  weekRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: width * 0.85,
-    marginBottom: 5,
-  },
-  weekDay: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: "bold",
     textAlign: "center",
-    flex: 1,
+    marginBottom: 8,
   },
-  gridRow: {
+  weekDays: {
     flexDirection: "row",
     justifyContent: "space-between",
-    width: width * 0.85,
-    marginBottom: 5,
+    width: "100%",
+    marginBottom: 4,
+    paddingHorizontal: 2,
   },
-  dateCell: {
-    width: width * 0.12,
-    height: width * 0.12,
-    justifyContent: "center",
+  weekDayText: {
+    flex: 1,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  sunday: { color: "#e55" },
+  saturday: { color: "#367" },
+  dayCell: {
+    flex: 1,
+    aspectRatio: 1,
     alignItems: "center",
-    borderRadius: 6,
+    justifyContent: "center",
+    margin: 2,
   },
-  dateText: {
-    fontSize: 16,
-  },
-  today: {
-    backgroundColor: "#ffeb3b",
-  },
-  selectedDate: {
-    backgroundColor: "#1976d2",
-  },
-  dimmedDate: {
-    opacity: 0.3,
-  },
-  dot: {
+  dayText: {
     fontSize: 14,
-    color: "red",
+  },
+  todayCell: {
+    backgroundColor: "#4e73df20",
+    borderRadius: 20,
+  },
+  todayText: {
+    color: "#4e73df",
+    fontWeight: "bold",
+  },
+  selectedCell: {
+    backgroundColor: "#33c9aa20",
+    borderRadius: 20,
+  },
+  selectedText: {
+    color: "#33c9aa",
+    fontWeight: "bold",
   },
 });
-
-export default MonthlyCalendar;
