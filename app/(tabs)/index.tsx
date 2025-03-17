@@ -8,6 +8,7 @@ import {
   Animated,
 } from "react-native";
 import { debounce } from "lodash";
+import dayjs from "dayjs";
 import {
   getIndexFromOffset,
   getCenterPositionFromIndex,
@@ -20,32 +21,28 @@ import {
   BUTTON_HEIGHT,
   GAP,
 } from "@/components/Values";
-// import {
-//   getCenterPositionFromIndex,
-//   getIndexFromOffset,
-//   fillEmpty,
-// } from "../utils";
-// import {
-//   MERIDIEM_ITEMS,
-//   MINUTE_ITEMS,
-//   HOUR_ITEMS,
-//   BUTTON_HEIGHT,
-//   GAP,
-// } from "../values";
+import customParseFormat from "dayjs/plugin/customParseFormat"; // Assuming customParseFormat is imported from a separate file
+dayjs.extend(customParseFormat);
 
 interface TimePickerProps {
-  value: Date;
-  onChange: (date: Date) => void;
+  value: dayjs.Dayjs;
+  onChange: (date: dayjs.Dayjs) => void;
   width: number;
   buttonHeight: number;
   visibleCount: number;
 }
 
-const isPM = (date: Date) => date.getHours() >= 12;
+const isPM = (date: dayjs.Dayjs | undefined | null): boolean => {
+  if (!date || !dayjs.isDayjs(date)) {
+    console.warn("isPM() received invalid date:", date);
+    return false; // 기본값 반환
+  }
+  return date.hour() >= 12;
+};
 
 const TimePicker: React.FC<TimePickerProps> = ({
-  value,
-  onChange,
+  value = dayjs(), // 기본값 추가
+  onChange = () => {}, // 기본값 추가 (빈 함수)
   width,
   buttonHeight,
   visibleCount,
@@ -71,26 +68,26 @@ const TimePicker: React.FC<TimePickerProps> = ({
     items: string[]
   ) => {
     const onScrollStop = debounce((offsetY: number) => {
-      const date = new Date(value.getTime());
+      let date = value;
       const itemIdx = getIndexFromOffset(offsetY);
 
       if (key === "meridiem") {
         const currValueIsPM = isPM(date);
         const nextValueIsPM = MERIDIEM_ITEMS[itemIdx] === "오후";
         if (currValueIsPM !== nextValueIsPM) {
-          date.setHours(date.getHours() + (nextValueIsPM ? 12 : -12));
+          date = date.add(nextValueIsPM ? 12 : -12, "hour");
         }
       }
       if (key === "hour") {
         const hour = Number(HOUR_ITEMS[itemIdx]);
         if (isPM(date)) {
-          date.setHours(hour === 12 ? 12 : hour + 12);
+          date = date.hour(hour === 12 ? 12 : hour + 12);
         } else {
-          date.setHours(hour === 12 ? 0 : hour);
+          date = date.hour(hour === 12 ? 0 : hour);
         }
       }
       if (key === "minute") {
-        date.setMinutes(Number(MINUTE_ITEMS[itemIdx]));
+        date = date.minute(Number(MINUTE_ITEMS[itemIdx]));
       }
 
       onChange(date);
@@ -133,8 +130,8 @@ const TimePicker: React.FC<TimePickerProps> = ({
 
   useEffect(() => {
     const meridiem = isPM(value) ? "오후" : "오전";
-    const hour = String(value.getHours() % 12 || 12).padStart(2, "0");
-    const minute = String(value.getMinutes()).padStart(2, "0");
+    const hour = String(value.hour() % 12 || 12).padStart(2, "0");
+    const minute = String(value.minute()).padStart(2, "0");
 
     const matchIndex = [
       MERIDIEM_ITEMS.indexOf(meridiem),
