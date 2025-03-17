@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import TimePicker from './TimePicker';
 
 interface CalendarModalProps {
@@ -16,28 +16,29 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ visible, onClose }) => {
     setTimePickerVisible(false);
   };
 
+  if (!visible) return null;
+
   return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.title}>날짜 선택</Text>
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <Text style={styles.title}>날짜 선택</Text>
 
-          {/* 타임픽커 버튼 */}
-          <TouchableOpacity style={styles.timeButton} onPress={() => setTimePickerVisible(true)}>
-            <Text style={styles.timeText}>
-              {selectedTime ? selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "시간 선택"}
-            </Text>
-          </TouchableOpacity>
+        {/* 타임픽커 버튼 */}
+        <TouchableOpacity style={styles.timeButton} onPress={() => setTimePickerVisible(true)}>
+          <Text style={styles.timeText}>
+            {selectedTime ? selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "시간 선택"}
+          </Text>
+        </TouchableOpacity>
 
-          {/* 타임픽커 */}
+        {/* 타임픽커 - absolute 배치 */}
+        {isTimePickerVisible && (
           <TimePicker
-            visible={isTimePickerVisible}
             onClose={() => setTimePickerVisible(false)}
             onConfirm={handleTimeConfirm}
           />
-        </View>
+        )}
       </View>
-    </Modal>
+    </View>
   );
 };
 
@@ -46,7 +47,7 @@ export default CalendarModal;
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)', // 약간 어두운 배경
+    backgroundColor: 'rgba(0,0,0,0.4)', 
     justifyContent: 'center',
     alignItems: 'center',
   },
