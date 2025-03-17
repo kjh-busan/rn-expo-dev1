@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import TimePicker from './TimePicker';
+import dayjs from 'dayjs';
 
 interface CalendarModalProps {
   visible: boolean;
@@ -8,11 +9,12 @@ interface CalendarModalProps {
 }
 
 const CalendarModal: React.FC<CalendarModalProps> = ({ visible, onClose }) => {
-  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState(dayjs());
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'yearMonth' | 'hourMinute'>('yearMonth');
 
-  const handleTimeConfirm = (date: Date) => {
-    setSelectedTime(date);
+  const handleTimeConfirm = (date: dayjs.Dayjs) => {
+    setSelectedDate(date);
     setTimePickerVisible(false);
   };
 
@@ -23,16 +25,34 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ visible, onClose }) => {
       <View style={styles.modalContent}>
         <Text style={styles.title}>날짜 선택</Text>
 
-        {/* 타임픽커 버튼 */}
-        <TouchableOpacity style={styles.timeButton} onPress={() => setTimePickerVisible(true)}>
+        <TouchableOpacity
+          style={styles.timeButton}
+          onPress={() => {
+            setPickerMode('yearMonth');
+            setTimePickerVisible(true);
+          }}
+        >
           <Text style={styles.timeText}>
-            {selectedTime ? selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "시간 선택"}
+            {selectedDate.format('YYYY-MM')}
           </Text>
         </TouchableOpacity>
 
-        {/* 타임픽커 - absolute 배치 */}
+        <TouchableOpacity
+          style={styles.timeButton}
+          onPress={() => {
+            setPickerMode('hourMinute');
+            setTimePickerVisible(true);
+          }}
+        >
+          <Text style={styles.timeText}>
+            {selectedDate.format('HH:mm')}
+          </Text>
+        </TouchableOpacity>
+
         {isTimePickerVisible && (
           <TimePicker
+            mode={pickerMode}
+            initialDate={selectedDate}
             onClose={() => setTimePickerVisible(false)}
             onConfirm={handleTimeConfirm}
           />
@@ -47,7 +67,7 @@ export default CalendarModal;
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)', 
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -69,6 +89,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '80%',
     alignItems: 'center',
+    marginVertical: 5,
   },
   timeText: {
     fontSize: 16,
