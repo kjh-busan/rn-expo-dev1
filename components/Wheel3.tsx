@@ -190,7 +190,7 @@ const CustomTimePicker = ({
           <Text style={styles.selectedTimeText}>
             {mode === "yearMonth"
               ? selectedDate.format("YYYY年 MM月")
-              : selectedDate.format("HH；mm")}
+              : selectedDate.format("HH:mm")}
           </Text>
 
           <View style={styles.pickerContainer}>
@@ -200,17 +200,17 @@ const CustomTimePicker = ({
                   years,
                   selectedDate.year(),
                   "year",
-                  scrollRefs.year,
-                  "年"
+                  scrollRefs.year
                 )}
+                <Text style={styles.selectedTimeText}>年</Text>
+
                 {renderLoopedPicker(
                   months,
                   selectedDate.month() + 1,
                   "month",
-                  scrollRefs.month,
-                  "月"
+                  scrollRefs.month
                 )}
-                <View style={{ flex: 1 }} /> {/* 중앙 정렬을 위한 빈 칸 */}
+                <Text style={styles.selectedTimeText}>月</Text>
               </>
             )}
             {mode === "hourMinute" && (
@@ -219,16 +219,16 @@ const CustomTimePicker = ({
                   hours,
                   selectedDate.hour(),
                   "hour",
-                  scrollRefs.hour,
-                  "；"
+                  scrollRefs.hour
                 )}
+                <Text style={styles.selectedTimeText}>:</Text>
+
                 {renderLoopedPicker(
                   minutes,
                   selectedDate.minute(),
                   "minute",
                   scrollRefs.minute
                 )}
-                <View style={{ flex: 1 }} /> {/* 중앙 정렬을 위한 빈 칸 */}
               </>
             )}
           </View>
@@ -268,6 +268,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    marginHorizontal: 40,
   },
   picker: { width: 80, height: ITEM_HEIGHT * VISIBLE_ITEMS },
   pickerItemContainer: {

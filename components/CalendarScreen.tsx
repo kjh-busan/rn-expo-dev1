@@ -27,7 +27,7 @@ export default function CalendarScreen() {
           setIsVisible(false);
           // throw new Error("Function not implemented.");
         }}
-        mode={"hourMinute"}
+        mode={"yearMonth"}
       />
     </View>
   );
