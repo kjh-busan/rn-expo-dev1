@@ -17,17 +17,19 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 
 const ITEM_HEIGHT = 40;
-const VISIBLE_ITEMS = 5;
+const VISIBLE_ITEMS = 3; // 🔹 휠 표시 개수 3개
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 type CustomTimePickerProps = {
   visible: boolean;
+  mode: "yearMonth" | "hourMinute";
   onClose: () => void;
   onConfirm: (selectedDate: Dayjs) => void;
 };
 
 const CustomTimePicker = ({
   visible,
+  mode,
   onClose,
   onConfirm,
 }: CustomTimePickerProps) => {
@@ -36,13 +38,11 @@ const CustomTimePicker = ({
 
   const [selectedDate, setSelectedDate] = useState(now);
 
-  // 📌 年範囲（最適化されたメモ化）
   const [yearRange, setYearRange] = useState(() => ({
     start: initialYear - 100,
     end: initialYear + 100,
   }));
 
-  // 📌 現在の日付基準の初期データ
   const years = useMemo(() => {
     return Array.from(
       { length: yearRange.end - yearRange.start + 1 },
@@ -51,17 +51,45 @@ const CustomTimePicker = ({
   }, [yearRange]);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
-  const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+  const minutes = useMemo(
+    () => Array.from({ length: 6 }, (_, i) => i * 10),
+    []
+  ); // 🔹 10분 단위
 
   const scrollRefs = {
     year: useRef<ScrollView>(null),
     month: useRef<ScrollView>(null),
-    day: useRef<ScrollView>(null),
     hour: useRef<ScrollView>(null),
+    minute: useRef<ScrollView>(null),
   };
 
-  // 📌 年の範囲を更新（50年以上超えた場合100年追加）
+  useEffect(() => {
+    if (visible) {
+      setTimeout(() => {
+        if (mode === "yearMonth") {
+          scrollRefs.year.current?.scrollTo({
+            y: (selectedDate.year() - yearRange.start) * ITEM_HEIGHT,
+            animated: false,
+          });
+          scrollRefs.month.current?.scrollTo({
+            y: selectedDate.month() * ITEM_HEIGHT,
+            animated: false,
+          });
+        } else if (mode === "hourMinute") {
+          scrollRefs.hour.current?.scrollTo({
+            y: selectedDate.hour() * ITEM_HEIGHT,
+            animated: false,
+          });
+          scrollRefs.minute.current?.scrollTo({
+            y: (selectedDate.minute() / 10) * ITEM_HEIGHT, // 🔹 10분 단위 스크롤
+            animated: false,
+          });
+        }
+      }, 100);
+    }
+  }, [visible, selectedDate, yearRange, mode]);
+
   const updateYearRange = useCallback(
     (newYear: number) => {
       if (newYear <= yearRange.start + 50) {
@@ -73,9 +101,8 @@ const CustomTimePicker = ({
     [yearRange]
   );
 
-  // 📌 選択された日付を更新
   const handleDateChange = (
-    type: "year" | "month" | "day" | "hour",
+    type: "year" | "month" | "hour" | "minute",
     value: number
   ) => {
     let newDate = selectedDate;
@@ -87,28 +114,27 @@ const CustomTimePicker = ({
       case "month":
         newDate = newDate.month(value - 1);
         break;
-      case "day":
-        newDate = newDate.date(value);
-        break;
       case "hour":
         newDate = newDate.hour(value);
+        break;
+      case "minute":
+        newDate = newDate.minute(value);
         break;
     }
     setSelectedDate(newDate);
   };
 
-  // 📌 確定ボタンをクリック
   const handleConfirm = () => {
     onConfirm(selectedDate);
     onClose();
   };
 
-  // 📌 無限スクロール可能な ScrollView を作成
   const renderLoopedPicker = (
     items: number[],
     selectedValue: number,
-    type: "year" | "month" | "day" | "hour",
-    ref: React.RefObject<ScrollView>
+    type: "year" | "month" | "hour" | "minute",
+    ref: React.RefObject<ScrollView>,
+    unit?: string
   ) => {
     return (
       <ScrollView
@@ -123,22 +149,26 @@ const CustomTimePicker = ({
             items.length;
           handleDateChange(type, items[index]);
         }}
-        contentOffset={{ x: 0, y: items.length * ITEM_HEIGHT }}
+        contentOffset={{ x: 0, y: selectedValue * ITEM_HEIGHT }}
       >
-        <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
-        {items.concat(items, items).map((item, index) => (
-          <View key={index} style={styles.pickerItemContainer}>
+        <View style={{ height: ITEM_HEIGHT }} />
+        {items.map((item, index) => (
+          <View
+            key={`${type}-${item}-${index}`}
+            style={styles.pickerItemContainer}
+          >
             <Text
               style={[
                 styles.pickerItem,
                 selectedValue === item && styles.selectedItem,
               ]}
             >
-              {item}
+              {item < 10 ? `0${item}` : item}
+              {unit}
             </Text>
           </View>
         ))}
-        <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
+        <View style={{ height: ITEM_HEIGHT }} />
       </ScrollView>
     );
   };
@@ -158,33 +188,48 @@ const CustomTimePicker = ({
           </View>
 
           <Text style={styles.selectedTimeText}>
-            {selectedDate.format("YYYY年 M月 D日 HH時")}
+            {mode === "yearMonth"
+              ? selectedDate.format("YYYY年 MM月")
+              : selectedDate.format("HH；mm")}
           </Text>
 
           <View style={styles.pickerContainer}>
-            {renderLoopedPicker(
-              years,
-              selectedDate.year(),
-              "year",
-              scrollRefs.year
+            {mode === "yearMonth" && (
+              <>
+                {renderLoopedPicker(
+                  years,
+                  selectedDate.year(),
+                  "year",
+                  scrollRefs.year,
+                  "年"
+                )}
+                {renderLoopedPicker(
+                  months,
+                  selectedDate.month() + 1,
+                  "month",
+                  scrollRefs.month,
+                  "月"
+                )}
+                <View style={{ flex: 1 }} /> {/* 중앙 정렬을 위한 빈 칸 */}
+              </>
             )}
-            {renderLoopedPicker(
-              months,
-              selectedDate.month() + 1,
-              "month",
-              scrollRefs.month
-            )}
-            {renderLoopedPicker(
-              days,
-              selectedDate.date(),
-              "day",
-              scrollRefs.day
-            )}
-            {renderLoopedPicker(
-              hours,
-              selectedDate.hour(),
-              "hour",
-              scrollRefs.hour
+            {mode === "hourMinute" && (
+              <>
+                {renderLoopedPicker(
+                  hours,
+                  selectedDate.hour(),
+                  "hour",
+                  scrollRefs.hour,
+                  "；"
+                )}
+                {renderLoopedPicker(
+                  minutes,
+                  selectedDate.minute(),
+                  "minute",
+                  scrollRefs.minute
+                )}
+                <View style={{ flex: 1 }} /> {/* 중앙 정렬을 위한 빈 칸 */}
+              </>
             )}
           </View>
         </View>
@@ -215,44 +260,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  cancelButton: {
-    fontSize: 16,
-    color: "#FF4444",
-  },
-  confirmButton: {
-    fontSize: 16,
-    color: "#007BFF",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  selectedTimeText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
+  cancelButton: { fontSize: 16, color: "#FF4444" },
+  confirmButton: { fontSize: 16, color: "#007BFF" },
+  title: { fontSize: 18, fontWeight: "bold" },
+  selectedTimeText: { fontSize: 16, fontWeight: "bold", marginBottom: 10 },
   pickerContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
   },
-  picker: {
-    width: 60,
-    height: ITEM_HEIGHT * VISIBLE_ITEMS,
-  },
+  picker: { width: 80, height: ITEM_HEIGHT * VISIBLE_ITEMS },
   pickerItemContainer: {
     height: ITEM_HEIGHT,
     justifyContent: "center",
     alignItems: "center",
   },
-  pickerItem: {
-    fontSize: 18,
-    color: "#666",
-  },
-  selectedItem: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
-  },
+  pickerItem: { fontSize: 18, color: "#666" },
+  selectedItem: { fontSize: 20, fontWeight: "bold", color: "#000" },
 });
