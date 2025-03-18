@@ -40,14 +40,14 @@ const CalendarModal: React.FC<{ visible: boolean; onClose: () => void }> = ({
             isTimePickerVisible && styles.disabledOverlay,
           ]}
         >
-          {/* 2. 타임픽커 버튼 추가 및 클릭 시 열기 */}
+          {/* 2. タイムピッカーのボタンを追加し、クリック時に表示 */}
           <TouchableOpacity
             style={styles.timeButton}
             onPress={() => {
               setPickerMode("yearMonth");
               setTimePickerVisible(true);
             }}
-            disabled={isTimePickerVisible} // 12. 타임픽커 표시 중에는 클릭 방지
+            disabled={isTimePickerVisible} // 12. タイムピッカー表示中はクリック不可
           >
             <Text style={styles.timeText}>
               {selectedDate.format("YYYY-MM")}
@@ -60,25 +60,25 @@ const CalendarModal: React.FC<{ visible: boolean; onClose: () => void }> = ({
               setPickerMode("hourMinute");
               setTimePickerVisible(true);
             }}
-            disabled={isTimePickerVisible} // 12. 타임픽커 표시 중에는 클릭 방지
+            disabled={isTimePickerVisible} // 12. タイムピッカー表示中はクリック不可
           >
             <Text style={styles.timeText}>{selectedDate.format("HH:mm")}</Text>
           </TouchableOpacity>
 
-          {/* 13. FlatList 스크롤 방지 + 터치 이벤트 차단 */}
+          {/* 13. FlatListのスクロールを禁止し、タッチイベントを無効化 */}
           {/* <FlatList
             data={Array.from({ length: 30 }, (_, i) => `Item ${i + 1}`)}
             renderItem={({ item }) => (
               <Text style={styles.listItem}>{item}</Text>
             )}
             keyExtractor={(item, index) => index.toString()}
-            scrollEnabled={!isTimePickerVisible} // 🔹 타임픽커가 열리면 스크롤 방지
+            scrollEnabled={!isTimePickerVisible} // 🔹 タイムピッカーが開いているときはスクロール禁止
           /> */}
         </View>
       </TouchableWithoutFeedback>
 
-      {/* <MonthlyCalendar /> */}
-      {/* 14. 타임픽커를 `absolute` 배치하여 조작 가능하도록 수정 */}
+      <MonthlyCalendar />
+      {/* 14. タイムピッカーを `absolute` で配置し、操作可能に修正 */}
       {isTimePickerVisible && (
         <TimePicker
           // mode={pickerMode}
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   disabledOverlay: {
-    pointerEvents: "none", // 12. 타임픽커가 열리면 달력 조작 불가능
+    pointerEvents: "none", // 12. タイムピッカーが開いているとカレンダー操作不可
   },
   modalContent: {
     width: "90%",
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: 20,
     alignItems: "center",
-    pointerEvents: "auto", // 14. 모달 터치 이벤트 복구
+    pointerEvents: "auto", // 14. モーダルタッチイベントを復元
   },
   title: {
     fontSize: 18,

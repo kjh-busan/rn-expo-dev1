@@ -14,16 +14,20 @@ export default function CalendarScreen() {
 
   return (
     <View style={styles.container}>
-      <Button title="캘린더 열기" onPress={() => setIsVisible(true)} />
+      <Button title="OPEN Calendar" onPress={() => setIsVisible(true)} />
       {/* <CalendarModal visible={isVisible} onClose={() => setIsVisible(false)} /> */}
       <CustomTimePicker
         visible={isVisible}
         onClose={function (): void {
-          // throw new Error("Function not implemented.");
+          console.log("########### close");
+          setIsVisible(false);
         }}
         onConfirm={function (selectedDate: Dayjs): void {
+          console.log(selectedDate.format("YYYY-MM-DD HH:mm:ss"));
+          setIsVisible(false);
           // throw new Error("Function not implemented.");
         }}
+        // mode={"yearMonth"}
       />
     </View>
   );

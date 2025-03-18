@@ -33,23 +33,16 @@ const CustomTimePicker = ({
 }: CustomTimePickerProps) => {
   const now = dayjs();
   const initialYear = now.year();
+
   const [selectedDate, setSelectedDate] = useState(now);
 
-  // 📌 연도 범위 (메모이제이션)
+  // 📌 年範囲（最適化されたメモ化）
   const [yearRange, setYearRange] = useState(() => ({
     start: initialYear - 100,
     end: initialYear + 100,
   }));
 
-  // 📌 초기 스크롤 위치를 맞추기 위한 ref
-  const scrollRefs = {
-    year: useRef<ScrollView>(null),
-    month: useRef<ScrollView>(null),
-    day: useRef<ScrollView>(null),
-    hour: useRef<ScrollView>(null),
-  };
-
-  // 📌 연도 리스트 생성
+  // 📌 現在の日付基準の初期データ
   const years = useMemo(() => {
     return Array.from(
       { length: yearRange.end - yearRange.start + 1 },
@@ -61,7 +54,14 @@ const CustomTimePicker = ({
   const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
 
-  // 📌 연도 갱신 (50년 초과되면 100년 추가)
+  const scrollRefs = {
+    year: useRef<ScrollView>(null),
+    month: useRef<ScrollView>(null),
+    day: useRef<ScrollView>(null),
+    hour: useRef<ScrollView>(null),
+  };
+
+  // 📌 年の範囲を更新（50年以上超えた場合100年追加）
   const updateYearRange = useCallback(
     (newYear: number) => {
       if (newYear <= yearRange.start + 50) {
@@ -73,7 +73,7 @@ const CustomTimePicker = ({
     [yearRange]
   );
 
-  // 📌 날짜 변경
+  // 📌 選択された日付を更新
   const handleDateChange = (
     type: "year" | "month" | "day" | "hour",
     value: number
@@ -97,41 +97,13 @@ const CustomTimePicker = ({
     setSelectedDate(newDate);
   };
 
-  // 📌 외부 터치 시 현재 설정된 날짜 반환
-  const handleOutsideTouch = () => {
+  // 📌 確定ボタンをクリック
+  const handleConfirm = () => {
     onConfirm(selectedDate);
     onClose();
   };
 
-  // 📌 초기 스크롤 위치 설정
-  useEffect(() => {
-    if (visible) {
-      setTimeout(() => {
-        scrollRefs.year.current?.scrollTo({
-          y: (selectedDate.year() - yearRange.start) * ITEM_HEIGHT,
-          x: 0,
-          animated: false,
-        });
-        scrollRefs.month.current?.scrollTo({
-          y: selectedDate.month() * ITEM_HEIGHT,
-          x: 0,
-          animated: false,
-        });
-        scrollRefs.day.current?.scrollTo({
-          y: (selectedDate.date() - 1) * ITEM_HEIGHT,
-          x: 0,
-          animated: false,
-        });
-        scrollRefs.hour.current?.scrollTo({
-          y: selectedDate.hour() * ITEM_HEIGHT,
-          x: 0,
-          animated: false,
-        });
-      }, 50);
-    }
-  }, [visible, selectedDate, yearRange]);
-
-  // 📌 루프 가능한 ScrollView 생성
+  // 📌 無限スクロール可能な ScrollView を作成
   const renderLoopedPicker = (
     items: number[],
     selectedValue: number,
@@ -173,14 +145,20 @@ const CustomTimePicker = ({
 
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={handleOutsideTouch}
-      >
+      <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.cancelButton}>キャンセル</Text>
+            </TouchableOpacity>
+            <Text style={styles.title}>時間選択</Text>
+            <TouchableOpacity onPress={handleConfirm}>
+              <Text style={styles.confirmButton}>確認</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.selectedTimeText}>
-            {selectedDate.format("YYYY년 M월 D일 HH시")}
+            {selectedDate.format("YYYY年 M月 D日 HH時")}
           </Text>
 
           <View style={styles.pickerContainer}>
@@ -210,7 +188,7 @@ const CustomTimePicker = ({
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 };
@@ -230,6 +208,24 @@ const styles = StyleSheet.create({
     padding: 20,
     width: SCREEN_WIDTH * 0.9,
     alignItems: "center",
+  },
+  header: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  cancelButton: {
+    fontSize: 16,
+    color: "#FF4444",
+  },
+  confirmButton: {
+    fontSize: 16,
+    color: "#007BFF",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
   selectedTimeText: {
     fontSize: 16,
