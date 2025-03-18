@@ -4,7 +4,6 @@ import CalendarModal from "./CalendarModal";
 // import TimePicker from "./Wheel2";
 import dayjs, { Dayjs } from "dayjs";
 import CustomTimePicker from "./Wheel3";
-import TimePicker from "./Wheel4";
 // import CustomTimePicker from "./Wheel2";
 // import TimePicker from "./Wheel-up";
 // import TimePicker from "./Wheel";
@@ -17,22 +16,13 @@ export default function CalendarScreen() {
     <View style={styles.container}>
       <Button title="캘린더 열기" onPress={() => setIsVisible(true)} />
       {/* <CalendarModal visible={isVisible} onClose={() => setIsVisible(false)} /> */}
-      {/* <CustomTimePicker
+      <CustomTimePicker
         visible={isVisible}
         onClose={function (): void {
-          throw new Error("Function not implemented.");
+          // throw new Error("Function not implemented.");
         }}
-        onConfirm={function (date: Date): void {
-          throw new Error("Function not implemented.");
-        }}
-      /> */}
-      <TimePicker
-        visible={false}
-        onClose={function (): void {
-          throw new Error("Function not implemented.");
-        }}
-        onConfirm={function (date: Date): void {
-          throw new Error("Function not implemented.");
+        onConfirm={function (selectedDate: Dayjs): void {
+          // throw new Error("Function not implemented.");
         }}
       />
     </View>

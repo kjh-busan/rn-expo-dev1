@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -7,44 +13,35 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
-} from 'react-native';
+} from "react-native";
+import dayjs, { Dayjs } from "dayjs";
 
 const ITEM_HEIGHT = 40;
 const VISIBLE_ITEMS = 5;
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
-interface CustomTimePickerProps {
+type CustomTimePickerProps = {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (date: Date) => void;
-}
+  onConfirm: (selectedDate: Dayjs) => void;
+};
 
-const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ visible, onClose, onConfirm }) => {
-  const currentDate = new Date();
-  const initialYear = currentDate.getFullYear();
-  
-  const [selectedYear, setSelectedYear] = useState(initialYear);
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
-  const [selectedDay, setSelectedDay] = useState(currentDate.getDate());
-  const [selectedHour, setSelectedHour] = useState(currentDate.getHours());
+const CustomTimePicker = ({
+  visible,
+  onClose,
+  onConfirm,
+}: CustomTimePickerProps) => {
+  const now = dayjs();
+  const initialYear = now.year();
+  const [selectedDate, setSelectedDate] = useState(now);
 
-  const [yearRange, setYearRange] = useState({
+  // 📌 연도 범위 (메모이제이션)
+  const [yearRange, setYearRange] = useState(() => ({
     start: initialYear - 100,
     end: initialYear + 100,
-  });
+  }));
 
-  const years = useMemo(() => {
-    const arr = [];
-    for (let i = yearRange.start; i <= yearRange.end; i++) {
-      arr.push(i);
-    }
-    return arr;
-  }, [yearRange]);
-
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-
+  // 📌 초기 스크롤 위치를 맞추기 위한 ref
   const scrollRefs = {
     year: useRef<ScrollView>(null),
     month: useRef<ScrollView>(null),
@@ -52,38 +49,95 @@ const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ visible, onClose, o
     hour: useRef<ScrollView>(null),
   };
 
-  const handleConfirm = () => {
-    const selectedDate = new Date(selectedYear, selectedMonth - 1, selectedDay, selectedHour);
+  // 📌 연도 리스트 생성
+  const years = useMemo(() => {
+    return Array.from(
+      { length: yearRange.end - yearRange.start + 1 },
+      (_, i) => yearRange.start + i
+    );
+  }, [yearRange]);
+
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+  const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+
+  // 📌 연도 갱신 (50년 초과되면 100년 추가)
+  const updateYearRange = useCallback(
+    (newYear: number) => {
+      if (newYear <= yearRange.start + 50) {
+        setYearRange((prev) => ({ start: prev.start - 100, end: prev.end }));
+      } else if (newYear >= yearRange.end - 50) {
+        setYearRange((prev) => ({ start: prev.start, end: prev.end + 100 }));
+      }
+    },
+    [yearRange]
+  );
+
+  // 📌 날짜 변경
+  const handleDateChange = (
+    type: "year" | "month" | "day" | "hour",
+    value: number
+  ) => {
+    let newDate = selectedDate;
+    switch (type) {
+      case "year":
+        newDate = newDate.year(value);
+        updateYearRange(value);
+        break;
+      case "month":
+        newDate = newDate.month(value - 1);
+        break;
+      case "day":
+        newDate = newDate.date(value);
+        break;
+      case "hour":
+        newDate = newDate.hour(value);
+        break;
+    }
+    setSelectedDate(newDate);
+  };
+
+  // 📌 외부 터치 시 현재 설정된 날짜 반환
+  const handleOutsideTouch = () => {
     onConfirm(selectedDate);
     onClose();
   };
 
-  const handleYearScrollEnd = (event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-    const newYear = years[index];
-
-    if (newYear <= yearRange.start + 10) {
-      setYearRange({ start: Math.max(1, yearRange.start - 100), end: yearRange.end });
-    } else if (newYear >= yearRange.end - 10) {
-      setYearRange({ start: yearRange.start, end: Math.min(9999, yearRange.end + 100) });
+  // 📌 초기 스크롤 위치 설정
+  useEffect(() => {
+    if (visible) {
+      setTimeout(() => {
+        scrollRefs.year.current?.scrollTo({
+          y: (selectedDate.year() - yearRange.start) * ITEM_HEIGHT,
+          x: 0,
+          animated: false,
+        });
+        scrollRefs.month.current?.scrollTo({
+          y: selectedDate.month() * ITEM_HEIGHT,
+          x: 0,
+          animated: false,
+        });
+        scrollRefs.day.current?.scrollTo({
+          y: (selectedDate.date() - 1) * ITEM_HEIGHT,
+          x: 0,
+          animated: false,
+        });
+        scrollRefs.hour.current?.scrollTo({
+          y: selectedDate.hour() * ITEM_HEIGHT,
+          x: 0,
+          animated: false,
+        });
+      }, 50);
     }
-    
-    setSelectedYear(newYear);
-  };
+  }, [visible, selectedDate, yearRange]);
 
-  const handleScrollEnd = (setValue: (value: number) => void, values: number[]) => (event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT) % values.length;
-    setValue(values[index]);
-  };
-
+  // 📌 루프 가능한 ScrollView 생성
   const renderLoopedPicker = (
     items: number[],
     selectedValue: number,
-    setValue: (value: number) => void,
-    ref: React.RefObject<ScrollView>,
-    handleScrollEndCallback?: (event: any) => void
+    type: "year" | "month" | "day" | "hour",
+    ref: React.RefObject<ScrollView>
   ) => {
-    const loopedItems = [...items, ...items, ...items];
     return (
       <ScrollView
         ref={ref}
@@ -91,13 +145,25 @@ const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ visible, onClose, o
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
-        onMomentumScrollEnd={handleScrollEndCallback ?? handleScrollEnd(setValue, items)}
-        contentOffset={{ y: items.length * ITEM_HEIGHT }}
+        onMomentumScrollEnd={(event) => {
+          const index =
+            Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT) %
+            items.length;
+          handleDateChange(type, items[index]);
+        }}
+        contentOffset={{ x: 0, y: items.length * ITEM_HEIGHT }}
       >
         <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
-        {loopedItems.map((item, index) => (
+        {items.concat(items, items).map((item, index) => (
           <View key={index} style={styles.pickerItemContainer}>
-            <Text style={[styles.pickerItem, selectedValue === item && styles.selectedItem]}>{item}</Text>
+            <Text
+              style={[
+                styles.pickerItem,
+                selectedValue === item && styles.selectedItem,
+              ]}
+            >
+              {item}
+            </Text>
           </View>
         ))}
         <View style={{ height: ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2) }} />
@@ -107,30 +173,44 @@ const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ visible, onClose, o
 
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.modalOverlay}>
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={handleOutsideTouch}
+      >
         <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.cancelButton}>취소</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>시간 선택</Text>
-            <TouchableOpacity onPress={handleConfirm}>
-              <Text style={styles.confirmButton}>확인</Text>
-            </TouchableOpacity>
-          </View>
-
           <Text style={styles.selectedTimeText}>
-            {selectedYear}년 {selectedMonth}월 {selectedDay}일 {selectedHour}시
+            {selectedDate.format("YYYY년 M월 D일 HH시")}
           </Text>
 
           <View style={styles.pickerContainer}>
-            {renderLoopedPicker(years, selectedYear, setSelectedYear, scrollRefs.year, handleYearScrollEnd)}
-            {renderLoopedPicker(months, selectedMonth, setSelectedMonth, scrollRefs.month)}
-            {renderLoopedPicker(days, selectedDay, setSelectedDay, scrollRefs.day)}
-            {renderLoopedPicker(hours, selectedHour, setSelectedHour, scrollRefs.hour)}
+            {renderLoopedPicker(
+              years,
+              selectedDate.year(),
+              "year",
+              scrollRefs.year
+            )}
+            {renderLoopedPicker(
+              months,
+              selectedDate.month() + 1,
+              "month",
+              scrollRefs.month
+            )}
+            {renderLoopedPicker(
+              days,
+              selectedDate.date(),
+              "day",
+              scrollRefs.day
+            )}
+            {renderLoopedPicker(
+              hours,
+              selectedDate.hour(),
+              "hour",
+              scrollRefs.hour
+            )}
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     </Modal>
   );
 };
@@ -140,64 +220,43 @@ export default CustomTimePicker;
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    paddingBottom: 20,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  cancelButton: {
-    color: '#FF3B30',
-    fontSize: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  confirmButton: {
-    color: '#007AFF',
-    fontSize: 16,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    width: SCREEN_WIDTH * 0.9,
+    alignItems: "center",
   },
   selectedTimeText: {
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginVertical: 10,
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
   },
   pickerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    height: ITEM_HEIGHT * VISIBLE_ITEMS,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   picker: {
-    width: SCREEN_WIDTH * 0.2,
+    width: 60,
     height: ITEM_HEIGHT * VISIBLE_ITEMS,
   },
   pickerItemContainer: {
     height: ITEM_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   pickerItem: {
     fontSize: 18,
-    color: '#888',
+    color: "#666",
   },
   selectedItem: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000',
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000",
   },
 });
